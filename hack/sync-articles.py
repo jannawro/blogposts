@@ -136,9 +136,9 @@ def update_existing_article(api_url: str, headers: Dict[str, str], slug: str, me
                 print(f"Failed to update article: {metadata['title']}. Status code: {e.code}")
                 print(f"Response content: {e.read().decode()}")
         else:
-            print(f"Article {metadata['title']} exists and content, date, and tags are unchanged. Skipping.")
+            print(f"Article '{metadata['title']}' exists and content, date, and tags are unchanged. Skipping.")
     else:
-        print(f"Article {metadata['title']} not found. Skipping update.")
+        print(f"Article '{metadata['title']}' not found. Skipping update.")
 
 def create_new_article(api_url: str, headers: Dict[str, str], title: str, payload: bytes):
     req = urllib.request.Request(f"{api_url}/api/articles", data=payload, headers=headers, method='POST')
