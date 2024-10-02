@@ -83,6 +83,7 @@ def get_local_articles() -> Set[str]:
             with open(file, 'r') as f:
                 content = f.read()
             metadata = get_article_metadata(content)
+            print("metadata:", metadata)
             title = metadata.get('title')
             if title:
                 local_articles.add(to_slug(title))
@@ -93,6 +94,7 @@ def process_local_article(file: Path, api_url: str, headers: Dict[str, str]):
         content = f.read()
 
     metadata = get_article_metadata(content)
+    print("metadata:", metadata)
     title = metadata.get('title')
     if not title:
         print(f"Skipping {file.name}: No title found")
