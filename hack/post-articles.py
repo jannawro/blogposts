@@ -82,7 +82,8 @@ def get_local_articles() -> Set[str]:
         if file.name != 'TEMPLATE.md':
             with open(file, 'r') as f:
                 content = f.read()
-            title = get_article_title(content)
+            metadata = get_article_metadata(content)
+            title = metadata.get('title')
             if title:
                 local_articles.add(to_slug(title))
     return local_articles
