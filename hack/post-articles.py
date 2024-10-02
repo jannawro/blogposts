@@ -5,6 +5,7 @@ import urllib.parse
 import json
 from pathlib import Path
 import re
+from typing import List, Dict
 
 def get_article_title(content):
     for line in content.split('\n'):
@@ -47,12 +48,50 @@ def to_slug(title):
     slug = re.sub(r'-+', '-', slug)
     return slug
 
-def process_articles(api_url, api_key):
+def get_all_articles(api_url: str, headers: Dict[str, str]) -> List[Dict]:
+    req = urllib.request.Request(f"{api_url}/api/articles", headers=headers)
+    try:
+        with urllib.request.urlopen(req) as response:
+            if response.getcode() == 200:
+                return json.loads(response.read().decode())
+    except urllib.error.HTTPError as e:
+        print(f"Failed to get all articles. Status code: {e.code}")
+        print(f"Response content: {e.read().decode()}")
+    return []
+
+def delete_article(api_url: str, headers: Dict[str, str], slug: str):
+    req = urllib.request.Request(f"{api_url}/api/articles/{slug}", headers=headers, method='DELETE')
+    try:
+        with urllib.request.urlopen(req) as response:
+            if response.getcode() == 200:
+                print(f"Successfully deleted article: {slug}")
+            else:
+                print(f"Failed to delete article: {slug}. Status code: {response.getcode()}")
+                print(f"Response content: {response.read().decode()}")
+    except urllib.error.HTTPError as e:
+        print(f"Failed to delete article: {slug}. Status code: {e.code}")
+        print(f"Response content: {e.read().decode()}")
+
+def process_articles(api_url: str, api_key: str):
     headers = {
         'X-API-Key': api_key,
         'Content-Type': 'application/json'
     }
 
+    # Get all articles from the API
+    all_articles = get_all_articles(api_url, headers)
+    
+    # Get all local article files
+    local_articles = set()
+    for file in Path('./blogposts').glob('*.md'):
+        if file.name != 'TEMPLATE.md':
+            with open(file, 'r') as f:
+                content = f.read()
+            title = get_article_title(content)
+            if title:
+                local_articles.add(to_slug(title))
+
+    # Process local articles
     for file in Path('./blogposts').glob('*.md'):
         if file.name == 'TEMPLATE.md':
             continue
@@ -100,6 +139,11 @@ def process_articles(api_url, api_key):
             except urllib.error.HTTPError as e:
                 print(f"Failed to create article: {title}. Status code: {e.code}")
                 print(f"Response content: {e.read().decode()}")
+
+    # Delete articles that exist on the server but not locally
+    for article in all_articles:
+        if article['slug'] not in local_articles:
+            delete_article(api_url, headers, article['slug'])
 
 if __name__ == "__main__":
     api_key = os.environ['API_KEY']
