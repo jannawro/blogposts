@@ -58,7 +58,7 @@ def process_articles(api_url, api_key):
             continue
 
         with open(file, 'r') as f:
-            content = f.read().replace('\n', '\\n')
+            content = f.read()
 
         title = get_article_title(content)
         if not title:
@@ -69,11 +69,11 @@ def process_articles(api_url, api_key):
 
         markdown_content = extract_markdown_content(content)
 
-        if article_exists(api_url, headers, title):
-            existing_article = get_existing_article(api_url, headers, title)
+        slug = to_slug(title)
+        if article_exists(api_url, headers, slug):
+            existing_article = get_existing_article(api_url, headers, slug)
             if existing_article and existing_article.get('content').replace('\\n', '\n') != markdown_content:
                 # Update existing article
-                slug = to_slug(title)
                 req = urllib.request.Request(f"{api_url}/api/articles/{slug}", data=payload, headers=headers, method='PUT')
                 try:
                     with urllib.request.urlopen(req) as response:
@@ -92,7 +92,7 @@ def process_articles(api_url, api_key):
             req = urllib.request.Request(f"{api_url}/api/articles", data=payload, headers=headers, method='POST')
             try:
                 with urllib.request.urlopen(req) as response:
-                    if response.getcode() == 200:
+                    if response.getcode() == 201:
                         print(f"Successfully created new article: {title}")
                     else:
                         print(f"Failed to create article: {title}. Status code: {response.getcode()}")
