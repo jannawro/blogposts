@@ -2,7 +2,6 @@ import os
 import requests
 from pathlib import Path
 import re
-import json
 
 def get_article_title(content):
     for line in content.split('\n'):
@@ -56,10 +55,10 @@ def process_articles(api_url, api_key):
         }
 
         markdown_content = extract_markdown_content(content)
-        
+
         if article_exists(api_url, headers, title):
             existing_article = get_existing_article(api_url, headers, title)
-            if existing_article and existing_article.get('Content') != markdown_content:
+            if existing_article and existing_article.get('content') != markdown_content:
                 # Update existing article
                 slug = to_slug(title)
                 response = requests.put(f"{api_url}/api/articles/{slug}", headers=headers, json=payload)
