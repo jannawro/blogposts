@@ -14,7 +14,7 @@ def get_article_title(content):
 
 def extract_markdown_content(content):
     _, markdown_content = content.split('===', 1)
-    return markdown_content.strip()
+    return markdown_content.strip().replace('\\n', '\n')
 
 def article_exists(api_url, headers, title):
     encoded_title = urllib.parse.quote(title)
@@ -58,7 +58,7 @@ def process_articles(api_url, api_key):
             continue
 
         with open(file, 'r') as f:
-            content = f.read()
+            content = f.read().replace('\n', '\\n')
 
         title = get_article_title(content)
         if not title:
