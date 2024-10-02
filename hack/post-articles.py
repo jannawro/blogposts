@@ -58,7 +58,7 @@ def process_articles(api_url, api_key):
             continue
 
         with open(file, 'r') as f:
-            content = f.read()
+            content = f.read().replace('\n', '\\n')
 
         title = get_article_title(content)
         if not title:
@@ -71,7 +71,7 @@ def process_articles(api_url, api_key):
 
         if article_exists(api_url, headers, title):
             existing_article = get_existing_article(api_url, headers, title)
-            if existing_article and existing_article.get('content') != markdown_content:
+            if existing_article and existing_article.get('content').replace('\\n', '\n') != markdown_content:
                 # Update existing article
                 slug = to_slug(title)
                 req = urllib.request.Request(f"{api_url}/api/articles/{slug}", data=payload, headers=headers, method='PUT')
