@@ -2,6 +2,7 @@ import os
 import requests
 import json
 from pathlib import Path
+import re
 
 def get_article_title(content):
     for line in content.split('\n'):
@@ -18,6 +19,15 @@ def get_existing_article(api_url, headers, title):
     if response.status_code == 200:
         return response.json()
     return None
+
+def to_slug(title):
+    # Convert to lowercase and replace spaces with hyphens
+    slug = title.lower().replace(' ', '-')
+    # Remove any characters that are not alphanumeric or hyphens
+    slug = re.sub(r'[^a-z0-9-]', '', slug)
+    # Remove any duplicate hyphens
+    slug = re.sub(r'-+', '-', slug)
+    return slug
 
 def process_articles(api_url, api_key):
     headers = {
@@ -45,7 +55,8 @@ def process_articles(api_url, api_key):
             existing_article = get_existing_article(api_url, headers, title)
             if existing_article and existing_article.get('article') != content:
                 # Update existing article
-                response = requests.put(f"{api_url}/api/articles/{title}", headers=headers, json=payload)
+                slug = to_slug(title)
+                response = requests.put(f"{api_url}/api/articles/{slug}", headers=headers, json=payload)
                 if response.status_code == 200:
                     print(f"Successfully updated article: {title}")
                 else:
