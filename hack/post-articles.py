@@ -72,16 +72,7 @@ def delete_article(api_url: str, headers: Dict[str, str], slug: str):
         print(f"Failed to delete article: {slug}. Status code: {e.code}")
         print(f"Response content: {e.read().decode()}")
 
-def process_articles(api_url: str, api_key: str):
-    headers = {
-        'X-API-Key': api_key,
-        'Content-Type': 'application/json'
-    }
-
-    # Get all articles from the API
-    all_articles = get_all_articles(api_url, headers)
-    
-    # Get all local article files
+def get_local_articles() -> Set[str]:
     local_articles = set()
     for file in Path('./blogposts').glob('*.md'):
         if file.name != 'TEMPLATE.md':
@@ -90,60 +81,75 @@ def process_articles(api_url: str, api_key: str):
             title = get_article_title(content)
             if title:
                 local_articles.add(to_slug(title))
+    return local_articles
 
-    # Process local articles
-    for file in Path('./blogposts').glob('*.md'):
-        if file.name == 'TEMPLATE.md':
-            continue
+def process_local_article(file: Path, api_url: str, headers: Dict[str, str]):
+    with open(file, 'r') as f:
+        content = f.read()
 
-        with open(file, 'r') as f:
-            content = f.read()
+    title = get_article_title(content)
+    if not title:
+        print(f"Skipping {file.name}: No title found")
+        return
 
-        title = get_article_title(content)
-        if not title:
-            print(f"Skipping {file.name}: No title found")
-            continue
+    payload = json.dumps({'article': content}).encode('utf-8')
+    markdown_content = extract_markdown_content(content)
+    slug = to_slug(title)
 
-        payload = json.dumps({'article': content}).encode('utf-8')
+    if article_exists(api_url, headers, slug):
+        update_existing_article(api_url, headers, slug, title, payload, markdown_content)
+    else:
+        create_new_article(api_url, headers, title, payload)
 
-        markdown_content = extract_markdown_content(content)
+def update_existing_article(api_url: str, headers: Dict[str, str], slug: str, title: str, payload: bytes, markdown_content: str):
+    existing_article = get_existing_article(api_url, headers, slug)
+    if existing_article and existing_article.get('content').replace('\\n', '\n') != markdown_content:
+        req = urllib.request.Request(f"{api_url}/api/articles/{slug}", data=payload, headers=headers, method='PUT')
+        try:
+            with urllib.request.urlopen(req) as response:
+                if response.getcode() == 200:
+                    print(f"Successfully updated article: {title}")
+                else:
+                    print(f"Failed to update article: {title}. Status code: {response.getcode()}")
+                    print(f"Response content: {response.read().decode()}")
+        except urllib.error.HTTPError as e:
+            print(f"Failed to update article: {title}. Status code: {e.code}")
+            print(f"Response content: {e.read().decode()}")
+    else:
+        print(f"Article {title} exists and content is unchanged. Skipping.")
 
-        slug = to_slug(title)
-        if article_exists(api_url, headers, slug):
-            existing_article = get_existing_article(api_url, headers, slug)
-            if existing_article and existing_article.get('content').replace('\\n', '\n') != markdown_content:
-                # Update existing article
-                req = urllib.request.Request(f"{api_url}/api/articles/{slug}", data=payload, headers=headers, method='PUT')
-                try:
-                    with urllib.request.urlopen(req) as response:
-                        if response.getcode() == 200:
-                            print(f"Successfully updated article: {title}")
-                        else:
-                            print(f"Failed to update article: {title}. Status code: {response.getcode()}")
-                            print(f"Response content: {response.read().decode()}")
-                except urllib.error.HTTPError as e:
-                    print(f"Failed to update article: {title}. Status code: {e.code}")
-                    print(f"Response content: {e.read().decode()}")
+def create_new_article(api_url: str, headers: Dict[str, str], title: str, payload: bytes):
+    req = urllib.request.Request(f"{api_url}/api/articles", data=payload, headers=headers, method='POST')
+    try:
+        with urllib.request.urlopen(req) as response:
+            if response.getcode() == 201:
+                print(f"Successfully created new article: {title}")
             else:
-                print(f"Article {title} exists and content is unchanged. Skipping.")
-        else:
-            # Create new article
-            req = urllib.request.Request(f"{api_url}/api/articles", data=payload, headers=headers, method='POST')
-            try:
-                with urllib.request.urlopen(req) as response:
-                    if response.getcode() == 201:
-                        print(f"Successfully created new article: {title}")
-                    else:
-                        print(f"Failed to create article: {title}. Status code: {response.getcode()}")
-                        print(f"Response content: {response.read().decode()}")
-            except urllib.error.HTTPError as e:
-                print(f"Failed to create article: {title}. Status code: {e.code}")
-                print(f"Response content: {e.read().decode()}")
+                print(f"Failed to create article: {title}. Status code: {response.getcode()}")
+                print(f"Response content: {response.read().decode()}")
+    except urllib.error.HTTPError as e:
+        print(f"Failed to create article: {title}. Status code: {e.code}")
+        print(f"Response content: {e.read().decode()}")
 
-    # Delete articles that exist on the server but not locally
+def delete_non_existent_articles(api_url: str, headers: Dict[str, str], all_articles: List[Dict], local_articles: Set[str]):
     for article in all_articles:
         if article['slug'] not in local_articles:
             delete_article(api_url, headers, article['slug'])
+
+def process_articles(api_url: str, api_key: str):
+    headers = {
+        'X-API-Key': api_key,
+        'Content-Type': 'application/json'
+    }
+
+    all_articles = get_all_articles(api_url, headers)
+    local_articles = get_local_articles()
+
+    for file in Path('./blogposts').glob('*.md'):
+        if file.name != 'TEMPLATE.md':
+            process_local_article(file, api_url, headers)
+
+    delete_non_existent_articles(api_url, headers, all_articles, local_articles)
 
 if __name__ == "__main__":
     api_key = os.environ['API_KEY']
