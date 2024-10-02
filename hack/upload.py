@@ -1,6 +1,5 @@
 import os
 import requests
-import json
 from pathlib import Path
 import re
 
@@ -38,10 +37,10 @@ def process_articles(api_url, api_key):
     for file in Path('./blogposts').glob('*.md'):
         if file.name == 'TEMPLATE.md':
             continue
-        
+
         with open(file, 'r') as f:
             content = f.read()
-        
+
         title = get_article_title(content)
         if not title:
             print(f"Skipping {file.name}: No title found")
@@ -50,7 +49,7 @@ def process_articles(api_url, api_key):
         payload = {
             'article': content
         }
-        
+
         if article_exists(api_url, headers, title):
             existing_article = get_existing_article(api_url, headers, title)
             if existing_article and existing_article.get('article') != content:
