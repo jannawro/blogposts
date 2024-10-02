@@ -63,7 +63,7 @@ def delete_article(api_url: str, headers: Dict[str, str], slug: str):
     req = urllib.request.Request(f"{api_url}/api/articles/{slug}", headers=headers, method='DELETE')
     try:
         with urllib.request.urlopen(req) as response:
-            if response.getcode() == 200:
+            if response.getcode() == 204:
                 print(f"Successfully deleted article: {slug}")
             else:
                 print(f"Failed to delete article: {slug}. Status code: {response.getcode()}")
