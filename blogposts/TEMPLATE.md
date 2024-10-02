@@ -1,0 +1,5 @@
+title:<TITLE>
+publicationDate:<DATE;FORMAT:2005-04-02>
+tags:<LIST OF TAGS, SEPARATOR:",">
+===
+MARKDOWN CONTENTS
