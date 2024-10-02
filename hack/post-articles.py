@@ -14,7 +14,12 @@ def get_article_metadata(content):
             break
         if ':' in line:
             key, value = line.split(':', 1)
-            metadata[key.strip().lower()] = value.strip()
+            key = key.strip().lower()
+            value = value.strip()
+            if key == 'tags':
+                metadata[key] = [tag.strip() for tag in value.split(',')]
+            else:
+                metadata[key] = value
     return metadata
 
 def extract_markdown_content(content):
