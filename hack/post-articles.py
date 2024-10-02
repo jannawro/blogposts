@@ -1,5 +1,8 @@
 import os
-import requests
+import urllib.request
+import urllib.error
+import urllib.parse
+import json
 from pathlib import Path
 import re
 
@@ -14,13 +17,25 @@ def extract_markdown_content(content):
     return markdown_content.strip()
 
 def article_exists(api_url, headers, title):
-    response = requests.get(f"{api_url}/api/articles/title/{title}", headers=headers)
-    return response.status_code == 200
+    encoded_title = urllib.parse.quote(title)
+    req = urllib.request.Request(f"{api_url}/api/articles/title/{encoded_title}", headers=headers)
+    try:
+        with urllib.request.urlopen(req) as response:
+            return response.getcode() == 200
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return False
+        raise
 
 def get_existing_article(api_url, headers, title):
-    response = requests.get(f"{api_url}/api/articles/title/{title}", headers=headers)
-    if response.status_code == 200:
-        return response.json()
+    encoded_title = urllib.parse.quote(title)
+    req = urllib.request.Request(f"{api_url}/api/articles/title/{encoded_title}", headers=headers)
+    try:
+        with urllib.request.urlopen(req) as response:
+            if response.getcode() == 200:
+                return json.loads(response.read().decode())
+    except urllib.error.HTTPError:
+        pass
     return None
 
 def to_slug(title):
@@ -50,9 +65,7 @@ def process_articles(api_url, api_key):
             print(f"Skipping {file.name}: No title found")
             continue
 
-        payload = {
-            'article': content
-        }
+        payload = json.dumps({'article': content}).encode('utf-8')
 
         markdown_content = extract_markdown_content(content)
 
@@ -61,22 +74,32 @@ def process_articles(api_url, api_key):
             if existing_article and existing_article.get('content') != markdown_content:
                 # Update existing article
                 slug = to_slug(title)
-                response = requests.put(f"{api_url}/api/articles/{slug}", headers=headers, json=payload)
-                if response.status_code == 200:
-                    print(f"Successfully updated article: {title}")
-                else:
-                    print(f"Failed to update article: {title}. Status code: {response.status_code}")
-                    print(f"Response content: {response.text}")
+                req = urllib.request.Request(f"{api_url}/api/articles/{slug}", data=payload, headers=headers, method='PUT')
+                try:
+                    with urllib.request.urlopen(req) as response:
+                        if response.getcode() == 200:
+                            print(f"Successfully updated article: {title}")
+                        else:
+                            print(f"Failed to update article: {title}. Status code: {response.getcode()}")
+                            print(f"Response content: {response.read().decode()}")
+                except urllib.error.HTTPError as e:
+                    print(f"Failed to update article: {title}. Status code: {e.code}")
+                    print(f"Response content: {e.read().decode()}")
             else:
                 print(f"Article {title} exists and content is unchanged. Skipping.")
         else:
             # Create new article
-            response = requests.post(f"{api_url}/api/articles", headers=headers, json=payload)
-            if response.status_code == 200:
-                print(f"Successfully created new article: {title}")
-            else:
-                print(f"Failed to create article: {title}. Status code: {response.status_code}")
-                print(f"Response content: {response.text}")
+            req = urllib.request.Request(f"{api_url}/api/articles", data=payload, headers=headers, method='POST')
+            try:
+                with urllib.request.urlopen(req) as response:
+                    if response.getcode() == 200:
+                        print(f"Successfully created new article: {title}")
+                    else:
+                        print(f"Failed to create article: {title}. Status code: {response.getcode()}")
+                        print(f"Response content: {response.read().decode()}")
+            except urllib.error.HTTPError as e:
+                print(f"Failed to create article: {title}. Status code: {e.code}")
+                print(f"Response content: {e.read().decode()}")
 
 if __name__ == "__main__":
     api_key = os.environ['API_KEY']
