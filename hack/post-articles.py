@@ -5,7 +5,7 @@ import urllib.parse
 import json
 from pathlib import Path
 import re
-from typing import List, Dict
+from typing import List, Dict, Set
 
 def get_article_title(content):
     for line in content.split('\n'):
