@@ -2,12 +2,17 @@ import os
 import requests
 from pathlib import Path
 import re
+import json
 
 def get_article_title(content):
     for line in content.split('\n'):
         if line.startswith('title:'):
             return line.split(':', 1)[1].strip()
     return None
+
+def extract_markdown_content(content):
+    _, markdown_content = content.split('===', 1)
+    return markdown_content.strip()
 
 def article_exists(api_url, headers, title):
     response = requests.get(f"{api_url}/api/articles/title/{title}", headers=headers)
@@ -50,9 +55,11 @@ def process_articles(api_url, api_key):
             'article': content
         }
 
+        markdown_content = extract_markdown_content(content)
+        
         if article_exists(api_url, headers, title):
             existing_article = get_existing_article(api_url, headers, title)
-            if existing_article and existing_article.get('article') != content:
+            if existing_article and existing_article.get('Content') != markdown_content:
                 # Update existing article
                 slug = to_slug(title)
                 response = requests.put(f"{api_url}/api/articles/{slug}", headers=headers, json=payload)
@@ -60,6 +67,7 @@ def process_articles(api_url, api_key):
                     print(f"Successfully updated article: {title}")
                 else:
                     print(f"Failed to update article: {title}. Status code: {response.status_code}")
+                    print(f"Response content: {response.text}")
             else:
                 print(f"Article {title} exists and content is unchanged. Skipping.")
         else:
@@ -69,6 +77,7 @@ def process_articles(api_url, api_key):
                 print(f"Successfully created new article: {title}")
             else:
                 print(f"Failed to create article: {title}. Status code: {response.status_code}")
+                print(f"Response content: {response.text}")
 
 if __name__ == "__main__":
     api_key = os.environ['API_KEY']
